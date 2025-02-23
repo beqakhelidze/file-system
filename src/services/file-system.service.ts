@@ -1,90 +1,196 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import { IFileSystemRepository } from 'src/repositories/files-system.repository';
 import { FsNode } from 'src/domain/Entities/file-system.entity';
-import {
-  IDirectory,
-  IFile,
-} from 'src/domain/Interfaces/file-system.interfaces';
-// import { HashService } from 'src/services/hash.service';
-import * as path from 'path';
-import { mkdir, rm, writeFile as writeFileInStorage } from 'fs/promises';
 import { Hash } from 'src/domain/Entities/hash.entity';
 import { IHashRepository } from 'src/repositories/hash.repository';
+import { IFsProvider } from 'src/domain/Interfaces/fsProvider.interface';
+import { IHashProvider } from 'src/domain/Interfaces/hashProvider.interface';
+import { User } from 'src/domain/Entities/user.entity';
+import { UploadedFileData } from 'src/domain/Interfaces/uploadedFile.interface';
 
 @Injectable()
 export class FileSystemService {
   constructor(
     @Inject('FilesSystemRepository')
     private readonly filesRepository: IFileSystemRepository,
-    @Inject('HashRepository')
+    @Inject('HashRepository1')
     private readonly hashRepository: IHashRepository,
+    @Inject('FsProvider')
+    private readonly FsProvider: IFsProvider,
+    @Inject('HashProvider')
+    private readonly HashProvider: IHashProvider,
   ) {}
 
-  async getDirectories(): Promise<FsNode[]> {
-    return await this.filesRepository.getDirectories();
+  async getDirectory(user: User, path: string): Promise<FsNode[]> {
+    return this.filesRepository.getDirectory(user.id, path);
   }
 
-  async createDirectory(directoryData: IDirectory): Promise<FsNode> {
-    const assetsDir = path.join(process.cwd(), `assets/${directoryData.path}`);
-    await mkdir(assetsDir, { recursive: true });
-    return await this.filesRepository.createNode(directoryData);
+  async createDirectory(
+    user: User,
+    directoryData: Partial<FsNode>,
+  ): Promise<FsNode> {
+    await this.FsProvider.createDirectory(
+      user.username,
+      `${directoryData.path}/${directoryData.name}`,
+    );
+    const node = new FsNode({
+      ...directoryData,
+      path: `${directoryData.path}${directoryData.name}`,
+      createdBy: user.username,
+      userId: user.id,
+    });
+    return this.filesRepository.createNode(node);
   }
 
-  async deleteDirectory(directoryPath: string): Promise<void> {
-    const fullPath = path.join(process.cwd(), 'assets', directoryPath);
+  async deleteDirectory(user: User, path: string): Promise<void> {
+    const nodesToDelete = await this.filesRepository.deleteNodesByPathPrefix(
+      user.id,
+      path,
+    );
 
-    try {
-      const NodesToDelete =
-        await this.filesRepository.deleteNodesByPathPrefix(directoryPath);
+    const uniqueHashes = new Map<number, { hashId: number; count: number }>();
 
-      const hashesToModify = NodesToDelete.filter((node) => {
-        return node.hash !== null;
-      }).map((node) => {
-        return node.hash;
-      });
-
-      for (const fileHash of hashesToModify) {
-        await this.hashRepository.decreaseOrDeleteHash(fileHash as Hash); // Decrease or delete
+    nodesToDelete.forEach((node) => {
+      if (node.hash !== null) {
+        const existingHash = uniqueHashes.get(node.hash.id);
+        if (existingHash) {
+          existingHash.count -= 1;
+        } else {
+          uniqueHashes.set(node.hash.id, {
+            hashId: node.hash.id,
+            count: node.hash.count - 1,
+          });
+        }
       }
+    });
 
-      await rm(fullPath, { recursive: true, force: true });
-    } catch (error) {
-      throw new BadRequestException(
-        `Failed to delete directory: ${error.message}`,
-      );
+    for (const { hashId, count } of uniqueHashes.values()) {
+      if (count === 0) {
+        await this.hashRepository.deleteHash(hashId);
+      } else {
+        await this.hashRepository.modifyHashCount(hashId, count);
+      }
     }
+
+    await this.FsProvider.deleteDirectory(path);
   }
 
-  async writeFile(fileData: IFile, file: Express.Multer.File): Promise<FsNode> {
+  async copyDirectory(
+    user: User,
+    path: string,
+    newPath: string,
+  ): Promise<{ message: string }> {
+    await this.FsProvider.copyNode(user.username, path, newPath);
+    const nodesToDoublicate = await this.filesRepository.copyDirectory(
+      user.id,
+      path,
+      newPath,
+    );
+
+    const uniqueHashes = new Map<number, { hashId: number; count: number }>();
+
+    nodesToDoublicate.forEach((node) => {
+      if (node.hash !== null) {
+        const existingHash = uniqueHashes.get(node.hash.id);
+        if (existingHash) {
+          existingHash.count += 1;
+        } else {
+          uniqueHashes.set(node.hash.id, {
+            hashId: node.hash.id,
+            count: 1,
+          });
+        }
+      }
+    });
+
+    for (const { hashId, count } of uniqueHashes.values()) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      this.hashRepository.modifyHashCount(hashId, count * 2);
+    }
+
+    return { message: 'Directory copied successfully' };
+  }
+
+  async moveDirectory(
+    user: User,
+    path: string,
+    newPath: string,
+  ): Promise<{ message: string }> {
+    await this.copyDirectory(user, path, newPath);
+    await this.deleteDirectory(user, path);
+    return { message: 'Directory moved successfully' };
+  }
+
+  async readFile(path: string): Promise<Buffer> {
+    return await this.FsProvider.readFile(path);
+  }
+
+  async writeFile(
+    user: User,
+    fileData: Partial<FsNode>,
+    file: UploadedFileData,
+  ): Promise<FsNode> {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    // const fileHash = await this.hashService.getOrCreateFileHash(file.buffer);
-    // const assetsFolderPath = path.join(process.cwd(), 'assets' + fileData.path);
-    // const filePath = path.join(assetsFolderPath, fileHash.hash);
-    // await writeFileInStorage(filePath, file.buffer);
+
+    const fileHash = this.HashProvider.hashFile(file.buffer);
+    const storedHash: Hash = await this.hashRepository.addHash(fileHash);
+    await this.FsProvider.writeFile(fileHash, file.buffer);
     const newFile = new FsNode({
-      name: fileData.name,
-      path: fileData.path,
-      mimeType: fileData.mimeType,
-      size: fileData.size,
-      // hash: { id: fileHash } as Hash,
+      ...fileData,
+      path: `${fileData.path}/${storedHash.hash}`,
+      mimeType: file.mimetype,
+      userId: user.id,
+      hash: storedHash,
     });
     return await this.filesRepository.createNode(newFile);
   }
 
-  async deleteFile(id: number): Promise<FsNode> {
-    const deletedNode = await this.filesRepository.deleteNode(id);
-    const assetsFolderPath = path.join(
-      process.cwd(),
-      'assets' + deletedNode.path,
-      deletedNode.hash?.hash as string,
+  async deleteFile(user: User, path: string): Promise<FsNode> {
+    const deletedNode = await this.filesRepository.deleteFileByPath(
+      user.id,
+      path,
     );
-    await rm(assetsFolderPath);
-    const deletedNodeFileHash = deletedNode.hash;
-    await this.hashRepository.decreaseOrDeleteHash(deletedNodeFileHash as Hash);
+
+    if (deletedNode.hash === null) return deletedNode;
+
+    if (deletedNode.hash.count === 1) {
+      await this.hashRepository.deleteHash(deletedNode.hash.id);
+      await this.FsProvider.removeFile(deletedNode.hash.hash);
+    } else {
+      await this.hashRepository.modifyHashCount(
+        deletedNode.hash.id,
+        deletedNode.hash.count - 1,
+      );
+    }
     return deletedNode;
+  }
+
+  async copyFile(user: User, path: string, newPath: string): Promise<FsNode> {
+    const fileToCopy = await this.filesRepository.findFileByPath(user.id, path);
+
+    if (!fileToCopy) throw new Error("Can't find file");
+
+    const newFile = new FsNode({
+      ...fileToCopy,
+      id: undefined,
+      path: `${newPath}/${fileToCopy.hash?.hash}`,
+    });
+
+    return this.filesRepository.createNode(newFile);
+  }
+
+  async moveFile(
+    user: User,
+    path: string,
+    newPath: string,
+  ): Promise<{ message: string }> {
+    await this.copyFile(user, path, newPath);
+    await this.deleteFile(user, path);
+    return { message: 'Directory moved successfully' };
   }
 }

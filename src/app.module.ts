@@ -4,7 +4,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { RepositoriesModule } from './repositories/repositories.module';
 import { ServicesModule } from './services/services.module';
-import { ProvidesModule } from './providers/providers.module';
+import { ProvidersModule } from './providers/providers.module';
 import { ControllersModule } from './controllers/controllers.module';
 
 @Module({
@@ -24,7 +24,7 @@ import { ControllersModule } from './controllers/controllers.module';
       serveRoot: '/assets', // Accessible at http://localhost:3000/assets/
     }),
     RepositoriesModule,
-    ProvidesModule,
+    ProvidersModule,
     ServicesModule,
     ControllersModule,
   ],

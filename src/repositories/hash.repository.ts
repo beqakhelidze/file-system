@@ -5,11 +5,12 @@ import { Hash } from '../domain/Entities/hash.entity';
 
 export interface IHashRepository {
   addHash(hash: string): Promise<Hash>;
-  decreaseOrDeleteHash(hash: Hash): Promise<Hash>;
+  deleteHash(id: number): Promise<Hash>;
+  modifyHashCount(id: number, newValue: number): Promise<Hash>;
 }
 
 @Injectable()
-export class HashRepository implements IHashRepository {
+export class HashRepository1 implements IHashRepository {
   constructor(
     @InjectRepository(Hash)
     private readonly hashRepository: Repository<Hash>,
@@ -30,15 +31,30 @@ export class HashRepository implements IHashRepository {
     return existingHash;
   }
 
-  async decreaseOrDeleteHash(fileHash: Hash): Promise<Hash> {
-    if (fileHash.count <= 1) {
-      await this.hashRepository.delete(fileHash.id); // Delete the hash
-    } else {
-      await this.hashRepository.update(fileHash.id, {
-        count: fileHash.count - 1,
-      }); // Decrease the count
+  async deleteHash(id: number): Promise<Hash> {
+    const hashToDelete = await this.hashRepository.findOne({ where: { id } });
+
+    if (!hashToDelete) {
+      throw new Error(`Hash with ID ${id} not found`);
     }
 
-    return fileHash;
+    await this.hashRepository.delete(id);
+    return hashToDelete;
+  }
+
+  async modifyHashCount(id: number, newValue: number): Promise<Hash> {
+    const hashToModify = await this.hashRepository.findOne({
+      where: { id: id },
+    });
+
+    if (!hashToModify) {
+      throw new Error(`Hash with ID ${id} not found`);
+    }
+
+    hashToModify.count = newValue;
+
+    await this.hashRepository.save(hashToModify);
+
+    return hashToModify;
   }
 }

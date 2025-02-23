@@ -1,25 +1,28 @@
 import { Module } from '@nestjs/common';
 import { FilesSystemRepository } from './files-system.repository';
-import { HashRepository } from './hash.repository';
+import { HashRepository1 } from './hash.repository';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FsNode } from 'src/domain/Entities/file-system.entity';
 import { Hash } from 'src/domain/Entities/hash.entity';
+import { AuthRepository } from './auth.repository';
+import { User } from 'src/domain/Entities/user.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([FsNode]),
-    TypeOrmModule.forFeature([Hash]),
-  ],
+  imports: [TypeOrmModule.forFeature([FsNode, Hash, User])],
   providers: [
+    {
+      provide: 'HashRepository1',
+      useClass: HashRepository1,
+    },
     {
       provide: 'FilesSystemRepository',
       useClass: FilesSystemRepository,
     },
     {
-      provide: 'HashRepository',
-      useClass: HashRepository,
+      provide: 'AuthRepository',
+      useClass: AuthRepository,
     },
   ],
-  exports: ['FilesSystemRepository', 'HashRepository'],
+  exports: ['HashRepository1', 'FilesSystemRepository', 'AuthRepository'],
 })
 export class RepositoriesModule {}

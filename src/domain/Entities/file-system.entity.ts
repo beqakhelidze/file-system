@@ -15,20 +15,26 @@ export class FsNode {
   id: number;
 
   @Column()
+  userId: number;
+
+  @Column()
   name: string;
 
   @Column()
   path: string;
 
   @Column({ default: 0 })
-  size: number; // Default size for directories
+  size: number;
 
   @ManyToOne(() => Hash)
   @JoinColumn()
-  hash: Hash | null; // Hash can now be null
+  hash: Hash | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  source: string | null;
 
   @Column({ default: 'folder' })
-  mimeType: string; // Default mimeType for directories
+  mimeType: string;
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createDate: Date;
@@ -37,10 +43,10 @@ export class FsNode {
   updateDate: Date;
 
   @Column({ default: 'system' })
-  createdBy: string; // Default value for createdBy
+  createdBy: string;
 
   @Column({ default: 'system' })
-  updatedBy: string; // Default value for updatedBy
+  updatedBy: string;
 
   constructor(rawData: Partial<FsNode>) {
     Object.assign(this, rawData);
