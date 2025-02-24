@@ -32,11 +32,11 @@ export class FileSystemController {
   }
 
   @Post('directory')
-  createDirectory(
+  async createDirectory(
     @Req() req: RequestWithUserInfo,
     @Body() fileData: Partial<User>,
   ): Promise<FsNode> {
-    return this.fileSystemService.createDirectory(req.user, fileData);
+    return await this.fileSystemService.createDirectory(req.user, fileData);
   }
 
   @Delete('directory')
@@ -73,7 +73,7 @@ export class FileSystemController {
 
   @Post('file')
   @UseInterceptors(FileInterceptor('file'))
-  writeFile(
+  async writeFile(
     @Req() req: RequestWithUserInfo,
     @UploadedFile() file: Express.Multer.File,
     @Body() fileData: Partial<FsNode>,
@@ -84,7 +84,11 @@ export class FileSystemController {
       mimetype: file.mimetype,
       size: file.size,
     };
-    return this.fileSystemService.writeFile(req.user, fileData, uploadedFile);
+    return await this.fileSystemService.writeFile(
+      req.user,
+      fileData,
+      uploadedFile,
+    );
   }
 
   @Delete('file')

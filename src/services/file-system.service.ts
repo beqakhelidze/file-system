@@ -34,7 +34,7 @@ export class FileSystemService {
     );
     const node = new FsNode({
       ...directoryData,
-      path: `${directoryData.path}${directoryData.name}`,
+      path: `${directoryData.path}/${directoryData.name}`,
       createdBy: user.username,
       user: user,
     });
