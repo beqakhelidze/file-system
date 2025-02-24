@@ -1,12 +1,12 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { IFileSystemRepository } from 'src/repositories/files-system.repository';
+import { IFileSystemRepository } from 'src/domain/interfaces/files-system.repository.interface';
 import { FsNode } from 'src/domain/entities/file-system.entity';
 import { Hash } from 'src/domain/entities/hash.entity';
-import { IHashRepository } from 'src/repositories/hash.repository';
 import { IFsProvider } from 'src/domain/interfaces/fsProvider.interface';
 import { IHashProvider } from 'src/domain/interfaces/hashProvider.interface';
 import { User } from 'src/domain/entities/user.entity';
 import { UploadedFileData } from 'src/domain/interfaces/uploadedFile.interface';
+import { IHashRepository } from 'src/domain/interfaces/hash.repository.interface';
 
 @Injectable()
 export class FileSystemService {

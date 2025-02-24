@@ -1,29 +1,29 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { IAuthRepository } from '../repositories/auth.repository';
+import { IUserRepository } from '../repositories/user.repository';
 import { User } from 'src/domain/entities/user.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @Inject('AuthRepository')
-    private readonly authRepository: IAuthRepository,
+    @Inject('UserRepository1')
+    private readonly userRepository: IUserRepository,
     private readonly jwtService: JwtService,
   ) {}
 
   async signUp(email: string, password: string): Promise<string> {
-    const existingUser = await this.authRepository.findByUsername(email);
+    const existingUser = await this.userRepository.findByUsername(email);
     if (existingUser) {
       throw new UnauthorizedException('username already in use');
     }
 
-    const newUser = await this.authRepository.createUser(email, password);
+    const newUser = await this.userRepository.createUser(email, password);
 
     return this.generateToken(newUser);
   }
 
   async signIn(email: string, password: string): Promise<string> {
-    const user = await this.authRepository.findByUsername(email);
+    const user = await this.userRepository.findByUsername(email);
     if (!user || password != user.password) {
       throw new UnauthorizedException('Invalid credentials');
     }

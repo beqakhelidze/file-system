@@ -2,15 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Hash } from '../domain/entities/hash.entity';
-
-export interface IHashRepository {
-  addHash(hash: string): Promise<Hash>;
-  deleteHash(id: number): Promise<Hash>;
-  modifyHashCount(id: number, newValue: number): Promise<Hash>;
-}
+import { IHashRepository } from 'src/domain/interfaces/hash.repository.interface';
 
 @Injectable()
-export class HashRepository1 implements IHashRepository {
+export class HashRepository implements IHashRepository {
   constructor(
     @InjectRepository(Hash)
     private readonly hashRepository: Repository<Hash>,
