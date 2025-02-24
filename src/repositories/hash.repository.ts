@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Hash } from '../domain/Entities/hash.entity';
+import { Hash } from '../domain/entities/hash.entity';
 
 export interface IHashRepository {
   addHash(hash: string): Promise<Hash>;

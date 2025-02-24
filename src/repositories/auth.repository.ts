@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/domain/Entities/user.entity';
+import { User } from 'src/domain/entities/user.entity';
 
 export interface IAuthRepository {
   findByUsername(username: string): Promise<User | null>;

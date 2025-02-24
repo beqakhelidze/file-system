@@ -1,15 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-
-import { Injectable, Inject, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { IFileSystemRepository } from 'src/repositories/files-system.repository';
-import { FsNode } from 'src/domain/Entities/file-system.entity';
-import { Hash } from 'src/domain/Entities/hash.entity';
+import { FsNode } from 'src/domain/entities/file-system.entity';
+import { Hash } from 'src/domain/entities/hash.entity';
 import { IHashRepository } from 'src/repositories/hash.repository';
-import { IFsProvider } from 'src/domain/Interfaces/fsProvider.interface';
-import { IHashProvider } from 'src/domain/Interfaces/hashProvider.interface';
-import { User } from 'src/domain/Entities/user.entity';
-import { UploadedFileData } from 'src/domain/Interfaces/uploadedFile.interface';
+import { IFsProvider } from 'src/domain/interfaces/fsProvider.interface';
+import { IHashProvider } from 'src/domain/interfaces/hashProvider.interface';
+import { User } from 'src/domain/entities/user.entity';
+import { UploadedFileData } from 'src/domain/interfaces/uploadedFile.interface';
 
 @Injectable()
 export class FileSystemService {
@@ -19,9 +16,9 @@ export class FileSystemService {
     @Inject('HashRepository1')
     private readonly hashRepository: IHashRepository,
     @Inject('FsProvider')
-    private readonly FsProvider: IFsProvider,
+    private readonly fsProvider: IFsProvider,
     @Inject('HashProvider')
-    private readonly HashProvider: IHashProvider,
+    private readonly hashProvider: IHashProvider,
   ) {}
 
   async getDirectory(user: User, path: string): Promise<FsNode[]> {
@@ -32,15 +29,14 @@ export class FileSystemService {
     user: User,
     directoryData: Partial<FsNode>,
   ): Promise<FsNode> {
-    await this.FsProvider.createDirectory(
-      user.username,
-      `${directoryData.path}/${directoryData.name}`,
+    await this.fsProvider.createDirectory(
+      `${user.username}/${directoryData.path}/${directoryData.name}`,
     );
     const node = new FsNode({
       ...directoryData,
       path: `${directoryData.path}${directoryData.name}`,
       createdBy: user.username,
-      userId: user.id,
+      user: user,
     });
     return this.filesRepository.createNode(node);
   }
@@ -67,15 +63,19 @@ export class FileSystemService {
       }
     });
 
-    for (const { hashId, count } of uniqueHashes.values()) {
-      if (count === 0) {
-        await this.hashRepository.deleteHash(hashId);
-      } else {
-        await this.hashRepository.modifyHashCount(hashId, count);
-      }
-    }
+    const uniqueHashArray = Array.from(uniqueHashes.values());
 
-    await this.FsProvider.deleteDirectory(path);
+    await Promise.all(
+      uniqueHashArray.map(({ hashId, count }) => {
+        if (count === 0) {
+          return this.hashRepository.deleteHash(hashId); // return the promise
+        } else {
+          return this.hashRepository.modifyHashCount(hashId, count); // return the promise
+        }
+      }),
+    );
+
+    await this.fsProvider.deleteDirectory(path);
   }
 
   async copyDirectory(
@@ -83,7 +83,10 @@ export class FileSystemService {
     path: string,
     newPath: string,
   ): Promise<{ message: string }> {
-    await this.FsProvider.copyNode(user.username, path, newPath);
+    await this.fsProvider.copyNode(
+      `${user.username}/${path}`,
+      `${user.username}/${newPath}`,
+    );
     const nodesToDoublicate = await this.filesRepository.copyDirectory(
       user.id,
       path,
@@ -106,10 +109,13 @@ export class FileSystemService {
       }
     });
 
-    for (const { hashId, count } of uniqueHashes.values()) {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      this.hashRepository.modifyHashCount(hashId, count * 2);
-    }
+    const uniqueHashArray = Array.from(uniqueHashes.values());
+
+    await Promise.all(
+      uniqueHashArray.map(({ hashId, count }) => {
+        this.hashRepository.modifyHashCount(hashId, count * 2);
+      }),
+    );
 
     return { message: 'Directory copied successfully' };
   }
@@ -125,7 +131,7 @@ export class FileSystemService {
   }
 
   async readFile(path: string): Promise<Buffer> {
-    return await this.FsProvider.readFile(path);
+    return this.fsProvider.readFile(path);
   }
 
   async writeFile(
@@ -134,20 +140,20 @@ export class FileSystemService {
     file: UploadedFileData,
   ): Promise<FsNode> {
     if (!file) {
-      throw new BadRequestException('No file provided');
+      throw new Error('No file provided');
     }
 
-    const fileHash = this.HashProvider.hashFile(file.buffer);
+    const fileHash = this.hashProvider.hashFile(file.buffer);
     const storedHash: Hash = await this.hashRepository.addHash(fileHash);
-    await this.FsProvider.writeFile(fileHash, file.buffer);
+    await this.fsProvider.writeFile(fileHash, file.buffer);
     const newFile = new FsNode({
       ...fileData,
       path: `${fileData.path}/${storedHash.hash}`,
       mimeType: file.mimetype,
-      userId: user.id,
+      user: user,
       hash: storedHash,
     });
-    return await this.filesRepository.createNode(newFile);
+    return this.filesRepository.createNode(newFile);
   }
 
   async deleteFile(user: User, path: string): Promise<FsNode> {
@@ -160,7 +166,7 @@ export class FileSystemService {
 
     if (deletedNode.hash.count === 1) {
       await this.hashRepository.deleteHash(deletedNode.hash.id);
-      await this.FsProvider.removeFile(deletedNode.hash.hash);
+      await this.fsProvider.removeFile(deletedNode.hash.hash);
     } else {
       await this.hashRepository.modifyHashCount(
         deletedNode.hash.id,

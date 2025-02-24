@@ -11,12 +11,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { FileSystemService } from 'src/services/file-system.service';
-import { FsNode } from 'src/domain/Entities/file-system.entity';
+import { FsNode } from 'src/domain/entities/file-system.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from 'src/common/auth.guard';
-import { RequestWithUserInfo } from 'src/domain/Interfaces/request.interface';
-import { User } from 'src/domain/Entities/user.entity';
-import { UploadedFileData } from 'src/domain/Interfaces/uploadedFile.interface';
+import { RequestWithUserInfo } from 'src/domain/interfaces/request.interface';
+import { User } from 'src/domain/entities/user.entity';
+import { UploadedFileData } from 'src/domain/interfaces/uploadedFile.interface';
 
 @Controller('')
 @UseGuards(AuthGuard)

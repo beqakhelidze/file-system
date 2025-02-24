@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Like, Repository } from 'typeorm';
-import { FsNode } from '../domain/Entities/file-system.entity';
+import { FsNode } from '../domain/entities/file-system.entity';
 export interface IFileSystemRepository {
   createNode(node: FsNode): Promise<FsNode>;
   findFileByPath(userId: number, path: string): Promise<FsNode | null>;
@@ -27,20 +27,20 @@ export class FilesSystemRepository implements IFileSystemRepository {
   ) {}
 
   async createNode(newNode: FsNode): Promise<FsNode> {
-    return await this.fileRepository.save(newNode);
+    return this.fileRepository.save(newNode);
   }
 
   async findFileByPath(userId: number, path: string): Promise<FsNode | null> {
     const fsNode = await this.fileRepository.findOne({
-      where: { path: path, userId: userId },
-      relations: ['hash'],
+      where: { path, user: { id: userId } },
+      relations: ['hash', 'user'],
     });
 
     return fsNode;
   }
 
   async getDirectory(userId: number, path: string): Promise<FsNode[]> {
-    return await this.fileRepository
+    return this.fileRepository
       .createQueryBuilder('fsNode')
       .where('fsNode.userId = :userId', { userId: userId })
       .andWhere(
@@ -70,10 +70,10 @@ export class FilesSystemRepository implements IFileSystemRepository {
   ): Promise<FsNode[]> {
     const nodesToCopy = await this.fileRepository.find({
       where: [
-        { path: Like(`${path}`), userId },
-        { path: Like(`${path}/%`), userId },
+        { path: Like(`${path}`), user: { id: userId } },
+        { path: Like(`${path}/%`), user: { id: userId } },
       ],
-      relations: ['hash'],
+      relations: ['hash', 'user'],
     });
 
     if (!nodesToCopy.length) {
@@ -96,14 +96,14 @@ export class FilesSystemRepository implements IFileSystemRepository {
   ): Promise<FsNode[]> {
     const nodesToDelete = await this.fileRepository.find({
       where: [
-        { path: Like(pathPrefix), userId: userId },
-        { path: Like(`${pathPrefix}/%`), userId: userId },
+        { path: Like(pathPrefix), user: { id: userId } },
+        { path: Like(`${pathPrefix}/%`), user: { id: userId } },
       ],
       relations: ['hash'],
     });
 
     await this.fileRepository.delete({
-      userId: userId,
+      user: { id: userId },
       path: Like(`${pathPrefix}%`),
     });
 
@@ -112,7 +112,7 @@ export class FilesSystemRepository implements IFileSystemRepository {
 
   async deleteFileByPath(userId: number, path: string): Promise<FsNode> {
     const nodeToDelete = await this.fileRepository.findOne({
-      where: { path: path, userId: userId },
+      where: { path: path, user: { id: userId } },
       relations: ['hash'],
     });
 

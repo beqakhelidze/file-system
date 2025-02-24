@@ -1,4 +1,4 @@
-import { Hash } from 'src/domain/Entities/hash.entity';
+import { Hash } from 'src/domain/entities/hash.entity';
 import {
   Entity,
   Column,
@@ -8,14 +8,20 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import { User } from './user.entity';
 
 @Entity('file_system')
 export class FsNode {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  userId: number;
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  @ManyToOne(() => Hash)
+  @JoinColumn()
+  hash: Hash | null;
 
   @Column()
   name: string;
@@ -25,10 +31,6 @@ export class FsNode {
 
   @Column({ default: 0 })
   size: number;
-
-  @ManyToOne(() => Hash)
-  @JoinColumn()
-  hash: Hash | null;
 
   @Column({ type: 'varchar', nullable: true })
   source: string | null;

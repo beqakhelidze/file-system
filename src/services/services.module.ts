@@ -4,7 +4,7 @@ import { RepositoriesModule } from 'src/repositories/repositories.module';
 import { ProvidersModule } from 'src/providers/providers.module';
 import { AuthService } from './auth.service';
 import { JwtModule } from '@nestjs/jwt';
-import { AUTH_SECRET } from 'src/Constants/auth.constants';
+import { AUTH_SECRET } from 'src/constants/auth.constants';
 @Module({
   imports: [
     JwtModule.register({

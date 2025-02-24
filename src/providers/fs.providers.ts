@@ -8,7 +8,7 @@ import {
 import { copy } from 'fs-extra';
 
 import { join } from 'path';
-import { IFsProvider } from 'src/domain/Interfaces/fsProvider.interface';
+import { IFsProvider } from 'src/domain/interfaces/fsProvider.interface';
 
 @Injectable()
 export class FsProvider implements IFsProvider {
@@ -16,8 +16,8 @@ export class FsProvider implements IFsProvider {
     return join(process.cwd(), 'assets/', path);
   }
 
-  async createDirectory(username: string, path: string): Promise<string> {
-    const directoryPath = this.getFullPath(`${username}/${path}`);
+  async createDirectory(path: string): Promise<string> {
+    const directoryPath = this.getFullPath(path);
     await mkdir(directoryPath, { recursive: true });
     return directoryPath;
   }
@@ -27,22 +27,16 @@ export class FsProvider implements IFsProvider {
     await rm(fullPath, { recursive: true, force: true });
   }
 
-  async copyNode(
-    username: string,
-    path: string,
-    newPath: string,
-  ): Promise<void> {
-    const sourcePath = this.getFullPath(`${username}/${path}`);
-    const targetPath = this.getFullPath(
-      `${username}/${newPath}/${path.split('/').pop()}`,
-    );
+  async copyNode(path: string, newPath: string): Promise<void> {
+    const sourcePath = this.getFullPath(path);
+    const targetPath = this.getFullPath(`${newPath}/${path.split('/').pop()}`);
     await copy(sourcePath, targetPath);
   }
 
   async readFile(path: string): Promise<Buffer> {
     const parts = path.split('/');
     const hash = parts[parts.length - 1];
-    return await readFile(join('assets/', hash));
+    return readFile(join('assets/', hash));
   }
 
   async writeFile(fileHash: string, buffer: Buffer) {
