@@ -23,4 +23,8 @@ export class Hash {
 
   @OneToMany(() => FsNode, (FsNode) => FsNode.hash)
   fileSystem: FsNode[];
+
+  constructor(rawData: Partial<Hash>) {
+    Object.assign(this, rawData);
+  }
 }
