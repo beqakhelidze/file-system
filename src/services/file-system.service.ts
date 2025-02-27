@@ -47,7 +47,10 @@ export class FileSystemService {
       path,
     );
 
-    const uniqueHashes = new Map<number, { hashId: number; count: number }>();
+    const uniqueHashes = new Map<
+      number,
+      { hashId: number; count: number; hash: string }
+    >();
 
     nodesToDelete.forEach((node) => {
       if (node.hash !== null) {
@@ -58,6 +61,7 @@ export class FileSystemService {
           uniqueHashes.set(node.hash.id, {
             hashId: node.hash.id,
             count: node.hash.count - 1,
+            hash: node.hash.hash,
           });
         }
       }
@@ -66,9 +70,10 @@ export class FileSystemService {
     const uniqueHashArray = Array.from(uniqueHashes.values());
 
     await Promise.all(
-      uniqueHashArray.map(({ hashId, count }) => {
+      uniqueHashArray.map(async ({ hashId, count, hash }) => {
         if (count === 0) {
-          return this.hashRepository.deleteHash(hashId); // return the promise
+          await this.fsProvider.removeFile(hash);
+          return this.hashRepository.deleteHash(hashId);
         } else {
           return this.hashRepository.modifyHashCount(hashId, count); // return the promise
         }
